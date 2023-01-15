@@ -1,35 +1,39 @@
-import http from 'node:http'
-import { Database } from './database.js'
-import { json } from './middlewares/json.js'
+import fs from 'node:fs/promises'
 
-const database = new Database()
+const databasePath = new URL('../db.json', import.meta.url)
 
-const server = http.createServer(async (req, res) => {
-  const { method, url } = req
+export class Database {
+  #database = {}
 
-  await json(req, res)
-
-  if (method === 'GET' && url === '/users') {
-    const users = database.select('users')
-
-    return res.end(JSON.stringify(users))
+  constructor() {
+    fs.readFile(databasePath, 'utf8')
+      .then(data => {
+        this.#database = JSON.parse(data)
+      })
+      .catch(() => {
+        this.#persist()
+      })
   }
 
-  if (method === 'POST' && url === '/users') {
-    const { name, email } = req.body
+  #persist() {
+    fs.writeFile(databasePath, JSON.stringify(this.#database))
+  }
 
-    const user = {
-      id: 1,
-      name,
-      email,
+  select(table) {
+    const data = this.#database[table] ?? []
+
+    return data
+  }
+
+  insert(table, data) {
+    if (Array.isArray(this.#database[table])) {
+      this.#database[table].push(data)
+    } else {
+      this.#database[table] = [data]
     }
 
-    database.insert('users', user)
+    this.#persist()
 
-    return res.writeHead(201).end()
+    return data
   }
-
-  return res.writeHead(404).end()
-})
-
-server.listen(3333)
+}
