@@ -1,39 +1,31 @@
-import fs from 'node:fs/promises'
+import http from 'node:http'
+import { json } from './middlewares/json.js'
 
-const databasePath = new URL('../db.json', import.meta.url)
+const users = []
 
-export class Database {
-  #database = {}
+const server = http.createServer(async (req, res) => {
+  const { method, url } = req
 
-  constructor() {
-    fs.readFile(databasePath, 'utf8')
-      .then(data => {
-        this.#database = JSON.parse(data)
-      })
-      .catch(() => {
-        this.#persist()
-      })
+  await json(req, res)
+
+  if (method === 'GET' && url === '/users') {
+    return res
+      .end(JSON.stringify(users))
   }
 
-  #persist() {
-    fs.writeFile(databasePath, JSON.stringify(this.#database))
+  if (method === 'POST' && url === '/users') {
+    const { name, email } = req.body
+
+    users.push({
+      id: 1,
+      name,
+      email,
+    })
+
+    return res.writeHead(201).end()
   }
 
-  select(table) {
-    const data = this.#database[table] ?? []
+  return res.writeHead(404).end()
+})
 
-    return data
-  }
-
-  insert(table, data) {
-    if (Array.isArray(this.#database[table])) {
-      this.#database[table].push(data)
-    } else {
-      this.#database[table] = [data]
-    }
-
-    this.#persist()
-
-    return data
-  }
-}
+server.listen(3333)
